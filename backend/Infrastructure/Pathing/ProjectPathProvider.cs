@@ -9,14 +9,15 @@ namespace DeepLearning.Infrastructure.Pathing;
 
 /// <summary>
 /// Resolves paths relative to the application base directory (where the .exe lives).
-/// For development builds, this resolves to the project root so that relative paths
-/// like "sample.jpg" and "soap_v7.onnx" are found correctly.
+/// For development builds, this resolves to the backend/ folder so that relative paths
+/// like "../models/yolo11n.onnx" and "../ai-training/..." are found correctly.
 /// For published (deployed) builds, this resolves to the publish folder itself,
 /// allowing the exe to be distributed as-is with its model and sample files.
 /// </summary>
 public sealed class ProjectPathProvider : IProjectPathProvider
 {
     private readonly string _appRoot;
+    private readonly bool _isDeployed;
 
     private static readonly string[] ImageExtensions = [".jpg", ".jpeg", ".png", ".bmp", ".gif"];
 
@@ -30,17 +31,33 @@ public sealed class ProjectPathProvider : IProjectPathProvider
 
         string devRoot = Path.GetFullPath(Path.Combine(baseDir, "..", "..", ".."));
 
-        _appRoot = File.Exists(Path.Combine(devRoot, "DeepLearning.csproj"))
-            ? devRoot
-            : baseDir;
+        _isDeployed = !File.Exists(Path.Combine(devRoot, "DeepLearning.csproj"));
+        _appRoot = _isDeployed ? baseDir : devRoot;
     }
+
+    /// <summary>
+    /// Returns true if this is a deployed (published) build.
+    /// </summary>
+    public bool IsDeployed => _isDeployed;
 
     /// <inheritdoc />
     public string GetProjectRoot() => _appRoot;
 
     /// <inheritdoc />
     public string GetProjectFilePath(string relativePath)
-        => Path.GetFullPath(Path.Combine(_appRoot, relativePath));
+    {
+        if (_isDeployed)
+        {
+            // In deployed mode, paths like "../models/x.onnx" should resolve to "models/x.onnx"
+            // because the models folder is inside the publish folder.
+            string cleaned = relativePath.StartsWith("..")
+                ? relativePath.Substring(relativePath.IndexOf('/', relativePath.LastIndexOf("..") + 2) + 1)
+                : relativePath;
+            return Path.GetFullPath(Path.Combine(_appRoot, cleaned));
+        }
+
+        return Path.GetFullPath(Path.Combine(_appRoot, relativePath));
+    }
 
     /// <inheritdoc />
     public string GetAbsolutePath(string path)

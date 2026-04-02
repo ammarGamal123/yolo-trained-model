@@ -37,7 +37,7 @@ internal static class Program
             userInterface.ShowInfo("  Resolved to: " + resolvedModelPath);
             userInterface.ShowInfo("");
             userInterface.ShowInfo("  Press any key to exit...");
-            Console.ReadKey();
+            try { Console.ReadKey(); } catch { }
             return;
         }
 

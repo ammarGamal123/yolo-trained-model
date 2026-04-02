@@ -38,7 +38,7 @@ public sealed class ConsoleUserInterface : IUserInterface
 
     public void ShowWelcome(DetectionOptions options)
     {
-        Console.Clear();
+        try { Console.Clear(); } catch { }
         PrintBanner();
 
         // Try to get model summary from catalog for richer display

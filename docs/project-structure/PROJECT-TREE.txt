@@ -1,0 +1,51 @@
+DeepLearning/
+|- Application/
+|  |- Abstractions/
+|  |  |- IImageRenderer.cs
+|  |  |- IObjectDetector.cs
+|  |  |- IProjectPathProvider.cs
+|  |  |- IUserInterface.cs
+|  |  `- IWebcamDetectionLoop.cs
+|  |- Configuration/
+|  |  `- DetectionOptions.cs
+|  |- Models/
+|  |  `- ImageDetectionReport.cs
+|  `- UseCases/
+|     |- DetectImageFromFileUseCase.cs
+|     `- RunDetectionApplication.cs
+|- Domain/
+|  |- Entities/
+|  |  `- DetectionResult.cs
+|  `- Enums/
+|     `- InputSource.cs
+|- Infrastructure/
+|  |- Capture/
+|  |  `- WebcamDetectionLoop.cs
+|  |- Detection/
+|  |  |- ImagePreprocessor.cs
+|  |  |- NmsProcessor.cs
+|  |  `- OnnxObjectDetector.cs
+|  |- Pathing/
+|  |  `- ProjectPathProvider.cs
+|  `- Rendering/
+|     `- DetectionOverlayRenderer.cs
+|- Presentation/
+|  `- Console/
+|     `- ConsoleUserInterface.cs
+|- project-structure/
+|  |- README.md
+|  |- PROFESSIONAL-GUIDE.md
+|  |- PROJECT-TREE.txt
+|  `- diagrams/
+|- Program.cs
+|- DeepLearning.csproj
+|- publish/
+|  |- modelDetector.exe              ← Self-contained Windows exe (~173 MB)
+|  |- modelDetector.pdb              ← Debug symbols
+|  |- soap_v7.onnx                 ← Model file
+|  |- sample.jpg                   ← Default test image
+|  |- onnxruntime.lib
+|  `- onnxruntime_providers_shared.lib
+|- sample.jpg
+|- output.jpg
+`─ soap_v7.onnx

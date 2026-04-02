@@ -1,0 +1,9 @@
+path: D:/Ammar/YOLO/yolo-trained-model/ai-training/dataset
+train: images/train
+val: images/val
+
+nc: 3
+names:
+  0: bottle
+  1: soap-cover
+  2: soap

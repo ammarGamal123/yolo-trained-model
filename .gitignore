@@ -1,0 +1,44 @@
+# Build outputs
+backend/bin/
+backend/obj/
+backend/publish/app/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+
+# JetBrains Rider / other IDEs
+.idea/
+*.DotSettings.user
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Large model files (use NuGet or separate asset download for these)
+models/*.onnx
+models/*.pt
+
+# YOLO training outputs
+ai-training/runs/
+ai-training/dataset/images/
+ai-training/dataset/labels/
+ai-training/dataset/*.cache
+ai-training/raw-data/
+
+# Generated images / output
+*.jpg
+*.png
+*.jpeg
+output.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Notebooks
+*.ipynb

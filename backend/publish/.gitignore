@@ -1,0 +1,10 @@
+# Ignore all files in publish except the structure
+*
+!.gitignore
+!README.txt
+!modelDetector.bat
+!samples/
+!samples/sample.jpg
+!output/
+# Don't track the app folder contents (rebuild with dotnet publish)
+app/*

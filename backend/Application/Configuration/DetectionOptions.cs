@@ -4,12 +4,12 @@ namespace DeepLearning.Application.Configuration;
 
 public sealed class DetectionOptions
 {
-    public string ModelPath { get; set; } = "../models/yolo11n.onnx";
-    public string[] ClassLabels { get; set; } = ["bottle", "soap-cover", "soap"];
+    public string ModelPath { get; set; } = "../models/detector_v4.onnx";
+    public string[] ClassLabels { get; set; } = ["bottle", "soap", "soap-cover"];
     public int ModelWidth { get; set; } = 640;
     public int ModelHeight { get; set; } = 640;
-    public float ConfidenceThreshold { get; set; } = 0.45f;
-    public float IouThreshold { get; set; } = 0.45f;
+    public float ConfidenceThreshold { get; set; } = 0.50f;
+    public float IouThreshold { get; set; } = 0.40f;
     public int CameraIndex { get; set; } = 0;
     public string WindowTitle { get; set; } = "Object Detection (ESC to exit)";
     public string DefaultImagePath { get; set; } = "../models/test/img.jpg";

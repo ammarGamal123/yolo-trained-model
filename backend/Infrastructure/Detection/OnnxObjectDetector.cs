@@ -1,5 +1,6 @@
 // YOLO detection engine using ONNX Runtime: preprocess -> infer -> parse -> NMS.
 
+using System.Diagnostics;
 using System.Drawing;
 using DeepLearning.Application.Abstractions;
 using DeepLearning.Application.Configuration;
@@ -24,12 +25,13 @@ public sealed class OnnxObjectDetector : IObjectDetector
     private readonly DetectionOptions _options;
     private readonly InferenceSession _session;
     private readonly string _inputName;
+    private readonly DetectionMetrics _metrics = new();
 
     /// <summary>
     /// Minimum bounding box area as fraction of image area.
     /// Boxes smaller than this are filtered out as noise.
     /// </summary>
-    private const float MinBoxAreaFraction = 0.0005f;
+    private const float MinBoxAreaFraction = 0.001f;
 
     /// <summary>
     /// Loads the ONNX model from the path specified in <paramref name="options"/>.
@@ -46,6 +48,8 @@ public sealed class OnnxObjectDetector : IObjectDetector
     /// <inheritdoc />
     public IReadOnlyList<DetectionResult> Detect(Bitmap image)
     {
+        var sw = Stopwatch.StartNew();
+
         float[] chwData = ImagePreprocessor.ToChwArray(image, _options.ModelWidth, _options.ModelHeight);
         var inputTensor = new DenseTensor<float>(chwData, [1, 3, _options.ModelHeight, _options.ModelWidth]);
 
@@ -61,10 +65,18 @@ public sealed class OnnxObjectDetector : IObjectDetector
 
         // Filter out very small boxes (likely noise)
         float minArea = image.Width * image.Height * MinBoxAreaFraction;
-        return nmsResult
+        var filtered = nmsResult
             .Where(d => d.Area >= minArea)
             .ToList();
+
+        sw.Stop();
+        _metrics.RecordInference(sw.Elapsed.TotalMilliseconds);
+
+        return filtered;
     }
+
+    /// <inheritdoc />
+    public DetectionMetrics GetMetrics() => _metrics;
 
     /// <summary>
     /// Infers the number of classes directly from the model output tensor shape.

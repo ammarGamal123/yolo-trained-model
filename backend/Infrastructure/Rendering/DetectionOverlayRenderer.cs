@@ -52,13 +52,13 @@ public sealed class DetectionOverlayRenderer : IImageRenderer
         graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
         float scale = Math.Min(image.Width, image.Height) / 500f;
-        scale = Math.Max(0.4f, Math.Min(scale, 2.0f));
+        scale = Math.Max(0.6f, Math.Min(scale, 2.5f));
 
-        float fontSize = 10f * scale;
-        float boxThickness = 4f * scale;
-        float accentThickness = 3f * scale;
-        int accentLength = Math.Max(10, (int)(25 * scale));
-        float cornerRadius = Math.Max(3, 6 * scale);
+        float fontSize = 54f * scale;
+        float boxThickness = 18f * scale;
+        float accentThickness = 12f * scale;
+        int accentLength = Math.Max(12, (int)(30 * scale));
+        float cornerRadius = Math.Max(4, 8 * scale);
 
         using Font labelFont = new("Segoe UI", fontSize, FontStyle.Bold);
         using SolidBrush labelForeground = new(Color.White);
@@ -89,7 +89,7 @@ public sealed class DetectionOverlayRenderer : IImageRenderer
             using GraphicsPath badgePath = CreateRoundedRect(badgeRect, cornerRadius);
             graphics.FillPath(badgeBrush, badgePath);
 
-            using Pen badgeBorderPen = new(classColor, 3f * scale);
+            using Pen badgeBorderPen = new(classColor, 9f * scale);
             graphics.DrawLine(badgeBorderPen, badgeRect.X + 2, badgeRect.Y, badgeRect.Right - 2, badgeRect.Y);
 
             graphics.DrawString(label, labelFont, labelForeground, badgeRect.X + 8 * scale, badgeRect.Y + 4 * scale);

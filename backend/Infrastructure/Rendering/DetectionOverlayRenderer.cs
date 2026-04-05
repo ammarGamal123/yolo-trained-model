@@ -51,7 +51,16 @@ public sealed class DetectionOverlayRenderer : IImageRenderer
         graphics.SmoothingMode = SmoothingMode.AntiAlias;
         graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-        using Font labelFont = new("Segoe UI", 11, FontStyle.Bold);
+        float scale = Math.Min(image.Width, image.Height) / 500f;
+        scale = Math.Max(0.4f, Math.Min(scale, 2.0f));
+
+        float fontSize = 10f * scale;
+        float boxThickness = 4f * scale;
+        float accentThickness = 3f * scale;
+        int accentLength = Math.Max(10, (int)(25 * scale));
+        float cornerRadius = Math.Max(3, 6 * scale);
+
+        using Font labelFont = new("Segoe UI", fontSize, FontStyle.Bold);
         using SolidBrush labelForeground = new(Color.White);
 
         foreach (DetectionResult detection in detections)
@@ -64,32 +73,26 @@ public sealed class DetectionOverlayRenderer : IImageRenderer
                 (int)detection.X2,
                 (int)detection.Y2);
 
-            // Draw bounding box with class-specific color
-            using Pen boxPen = new(classColor, 3f);
+            using Pen boxPen = new(classColor, boxThickness);
             graphics.DrawRectangle(boxPen, rectangle);
 
-            // Draw corner accents for a modern look
-            DrawCornerAccents(graphics, rectangle, classColor);
+            DrawCornerAccents(graphics, rectangle, classColor, accentLength, accentThickness);
 
-            // Draw label badge
             string label = FormatLabel(detection);
             SizeF textSize = graphics.MeasureString(label, labelFont);
-            float labelY = Math.Max(0, detection.Y1 - textSize.Height - 6);
-            float badgeWidth = textSize.Width + 12;
-            float badgeHeight = textSize.Height + 6;
+            float labelY = Math.Max(0, detection.Y1 - textSize.Height - 8 * scale);
+            float badgeWidth = textSize.Width + 16 * scale;
+            float badgeHeight = textSize.Height + 10 * scale;
             RectangleF badgeRect = new(detection.X1, labelY, badgeWidth, badgeHeight);
 
-            // Semi-transparent badge background matching class color
-            using SolidBrush badgeBrush = new(Color.FromArgb(210, classColor.R / 4, classColor.G / 4, classColor.B / 4));
-            using GraphicsPath badgePath = CreateRoundedRect(badgeRect, 4);
+            using SolidBrush badgeBrush = new(Color.FromArgb(220, classColor.R / 4, classColor.G / 4, classColor.B / 4));
+            using GraphicsPath badgePath = CreateRoundedRect(badgeRect, cornerRadius);
             graphics.FillPath(badgeBrush, badgePath);
 
-            // Thin colored top border on badge
-            using Pen badgeBorderPen = new(classColor, 2f);
+            using Pen badgeBorderPen = new(classColor, 3f * scale);
             graphics.DrawLine(badgeBorderPen, badgeRect.X + 2, badgeRect.Y, badgeRect.Right - 2, badgeRect.Y);
 
-            // Label text
-            graphics.DrawString(label, labelFont, labelForeground, badgeRect.X + 6, badgeRect.Y + 3);
+            graphics.DrawString(label, labelFont, labelForeground, badgeRect.X + 8 * scale, badgeRect.Y + 4 * scale);
         }
 
         return canvas;
@@ -113,26 +116,21 @@ public sealed class DetectionOverlayRenderer : IImageRenderer
     /// <summary>
     /// Draws small corner accent lines on the bounding box for a modern detection look.
     /// </summary>
-    private static void DrawCornerAccents(Graphics g, Rectangle rect, Color color)
+    private static void DrawCornerAccents(Graphics g, Rectangle rect, Color color, int accentLen, float thickness)
     {
-        int accentLen = Math.Min(20, Math.Min(rect.Width, rect.Height) / 4);
         if (accentLen < 4) return;
 
-        using Pen accentPen = new(color, 4f);
+        using Pen accentPen = new(color, thickness);
 
-        // Top-left
         g.DrawLine(accentPen, rect.Left, rect.Top, rect.Left + accentLen, rect.Top);
         g.DrawLine(accentPen, rect.Left, rect.Top, rect.Left, rect.Top + accentLen);
 
-        // Top-right
         g.DrawLine(accentPen, rect.Right, rect.Top, rect.Right - accentLen, rect.Top);
         g.DrawLine(accentPen, rect.Right, rect.Top, rect.Right, rect.Top + accentLen);
 
-        // Bottom-left
         g.DrawLine(accentPen, rect.Left, rect.Bottom, rect.Left + accentLen, rect.Bottom);
         g.DrawLine(accentPen, rect.Left, rect.Bottom, rect.Left, rect.Bottom - accentLen);
 
-        // Bottom-right
         g.DrawLine(accentPen, rect.Right, rect.Bottom, rect.Right - accentLen, rect.Bottom);
         g.DrawLine(accentPen, rect.Right, rect.Bottom, rect.Right, rect.Bottom - accentLen);
     }

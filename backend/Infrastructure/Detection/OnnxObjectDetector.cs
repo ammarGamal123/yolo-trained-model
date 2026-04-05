@@ -35,13 +35,33 @@ public sealed class OnnxObjectDetector : IObjectDetector
 
     /// <summary>
     /// Loads the ONNX model from the path specified in <paramref name="options"/>.
+    /// Configured for maximum inference speed with optimized session options.
     /// </summary>
     /// <param name="options">Must supply <see cref="DetectionOptions.ModelPath"/>.</param>
     /// <exception cref="FileNotFoundException">Thrown when the model file does not exist.</exception>
     public OnnxObjectDetector(DetectionOptions options)
     {
         _options = options;
-        _session = new InferenceSession(_options.ModelPath);
+
+        // Optimize session for maximum speed
+        var sessionOptions = new SessionOptions
+        {
+            // Use all available CPU cores
+            ExecutionMode = ExecutionMode.ORT_PARALLEL,
+            // Enable graph optimization
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+            // Enable memory pattern optimization (faster allocation)
+            EnableMemoryPattern = true,
+            // Enable CPU memory arena
+            EnableCpuMemArena = true,
+        };
+
+        // Set intra-op threads to use all CPU cores
+        int cpuCount = Environment.ProcessorCount;
+        sessionOptions.IntraOpNumThreads = cpuCount;
+        sessionOptions.InterOpNumThreads = Math.Max(1, cpuCount / 2);
+
+        _session = new InferenceSession(_options.ModelPath, sessionOptions);
         _inputName = _session.InputMetadata.Keys.First();
     }
 

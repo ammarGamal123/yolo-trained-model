@@ -34,4 +34,7 @@ public interface IUserInterface
 
     // ─── New: Batch detection report display ────────────────────
     void ShowBatchDetectionReport(BatchDetectionReport report, string[] classLabels);
+
+    // ─── Webcam session summary ─────────────────────────────────
+    void ShowWebcamSummary(DetectionMetrics metrics, int totalFrames, TimeSpan totalTime);
 }

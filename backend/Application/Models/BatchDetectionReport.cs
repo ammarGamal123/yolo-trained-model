@@ -31,6 +31,9 @@ public sealed class BatchDetectionReport
     /// <summary>Aggregate count of all detections across all images.</summary>
     public int TotalDetections => Reports.Sum(r => r.Detections.Count);
 
+    /// <summary>Average FPS across all processed images.</summary>
+    public double AverageFPS => Reports.Count > 0 ? Reports.Average(r => r.FPS) : 0;
+
     /// <summary>Per-class detection counts aggregated across all images.</summary>
     public Dictionary<string, int> GetClassCounts(string[] classLabels)
     {

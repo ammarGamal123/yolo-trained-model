@@ -1,6 +1,7 @@
 // Converts a Bitmap to a CHW-normalized float array for YOLO model input.
 
 using System.Drawing;
+using System.Drawing.Imaging;
 
 namespace DeepLearning.Infrastructure.Detection;
 
@@ -27,6 +28,7 @@ public static class ImagePreprocessor
 {
     /// <summary>
     /// Converts a source bitmap to a CHW-normalized float array.
+    /// Uses fast LockBits for pixel access instead of slow GetPixel.
     /// </summary>
     /// <param name="source">The original image in any size.</param>
     /// <param name="targetWidth">Target width in pixels (must match the model's expected input width).</param>
@@ -38,22 +40,46 @@ public static class ImagePreprocessor
     /// </returns>
     public static float[] ToChwArray(Bitmap source, int targetWidth, int targetHeight)
     {
-        using Bitmap resized = new(source, new Size(targetWidth, targetHeight));
+        using Bitmap resized = new(targetWidth, targetHeight);
+        using (Graphics g = Graphics.FromImage(resized))
+        {
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
+            g.DrawImage(source, 0, 0, targetWidth, targetHeight);
+        }
 
         int pixelCount = targetWidth * targetHeight;
         float[] data = new float[3 * pixelCount];
 
-        for (int y = 0; y < targetHeight; y++)
-        {
-            for (int x = 0; x < targetWidth; x++)
-            {
-                Color pixel = resized.GetPixel(x, y);
-                int index = y * targetWidth + x;
+        Rectangle rect = new(0, 0, targetWidth, targetHeight);
+        BitmapData bitmapData = resized.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
 
-                data[index] = pixel.R / 255f;
-                data[pixelCount + index] = pixel.G / 255f;
-                data[(2 * pixelCount) + index] = pixel.B / 255f;
+        try
+        {
+            unsafe
+            {
+                byte* ptr = (byte*)bitmapData.Scan0;
+                int stride = bitmapData.Stride;
+
+                for (int y = 0; y < targetHeight; y++)
+                {
+                    byte* row = ptr + (y * stride);
+                    for (int x = 0; x < targetWidth; x++)
+                    {
+                        int index = y * targetWidth + x;
+                        int pixelIndex = x * 3;
+
+                        data[index] = row[pixelIndex + 2] / 255f;         // R
+                        data[pixelCount + index] = row[pixelIndex + 1] / 255f; // G
+                        data[2 * pixelCount + index] = row[pixelIndex] / 255f;  // B
+                    }
+                }
             }
+        }
+        finally
+        {
+            resized.UnlockBits(bitmapData);
         }
 
         return data;

@@ -8,8 +8,8 @@ public sealed class DetectionOptions
     public string[] ClassLabels { get; set; } = ["soap", "soap-cover", "bottle"];
     public int ModelWidth { get; set; } = 640;
     public int ModelHeight { get; set; } = 640;
-    public float ConfidenceThreshold { get; set; } = 0.50f;
-    public float IouThreshold { get; set; } = 0.40f;
+    public float ConfidenceThreshold { get; set; } = 0.25f;
+    public float IouThreshold { get; set; } = 0.50f;
     public int CameraIndex { get; set; } = 0;
     public string WindowTitle { get; set; } = "Object Detection (ESC to exit)";
     public string DefaultImagePath { get; set; } = "../models/test/img.jpg";
@@ -18,4 +18,9 @@ public sealed class DetectionOptions
 
     public int DisplayWidth { get; set; } = 960;
     public int DisplayHeight { get; set; } = 540;
+
+    public bool UseSoftNms { get; set; } = true;
+    public float SoftNmsSigma { get; set; } = 0.5f;
+    public bool MergeCloseDetections { get; set; } = true;
+    public float MergeDistanceThreshold { get; set; } = 30f;
 }

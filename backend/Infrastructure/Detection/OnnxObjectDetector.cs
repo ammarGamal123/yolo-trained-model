@@ -81,18 +81,78 @@ public sealed class OnnxObjectDetector : IObjectDetector
         using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = _session.Run(inputs);
         IReadOnlyList<DetectionResult> rawDetections = ParseDetections(results, image.Width, image.Height);
 
-        IReadOnlyList<DetectionResult> nmsResult = NmsProcessor.Apply(rawDetections, _options.IouThreshold);
+        IReadOnlyList<DetectionResult> nmsResult = NmsProcessor.Apply(
+            rawDetections, 
+            _options.IouThreshold,
+            _options.UseSoftNms,
+            _options.SoftNmsSigma);
 
-        // Filter out very small boxes (likely noise)
-        float minArea = image.Width * image.Height * MinBoxAreaFraction;
         var filtered = nmsResult
-            .Where(d => d.Area >= minArea)
+            .Where(d => d.Confidence >= _options.ConfidenceThreshold)
             .ToList();
+
+        if (_options.MergeCloseDetections && filtered.Count > 1)
+        {
+            filtered = MergeCloseDetections(filtered);
+        }
 
         sw.Stop();
         _metrics.RecordInference(sw.Elapsed.TotalMilliseconds);
 
         return filtered;
+    }
+
+    private List<DetectionResult> MergeCloseDetections(List<DetectionResult> detections)
+    {
+        var merged = new List<DetectionResult>();
+        var used = new HashSet<int>();
+
+        for (int i = 0; i < detections.Count; i++)
+        {
+            if (used.Contains(i)) continue;
+
+            var current = detections[i];
+            var closeGroup = new List<DetectionResult> { current };
+            used.Add(i);
+
+            for (int j = i + 1; j < detections.Count; j++)
+            {
+                if (used.Contains(j)) continue;
+                if (detections[j].ClassId != current.ClassId) continue;
+
+                float distance = NmsProcessor.CalculateCenterDistance(current, detections[j]);
+                if (distance < _options.MergeDistanceThreshold)
+                {
+                    closeGroup.Add(detections[j]);
+                    used.Add(j);
+                }
+            }
+
+            if (closeGroup.Count == 1)
+            {
+                merged.Add(current);
+            }
+            else
+            {
+                float avgX1 = closeGroup.Average(d => d.X1);
+                float avgY1 = closeGroup.Average(d => d.Y1);
+                float avgX2 = closeGroup.Average(d => d.X2);
+                float avgY2 = closeGroup.Average(d => d.Y2);
+                float maxConf = closeGroup.Max(d => d.Confidence);
+
+                merged.Add(new DetectionResult
+                {
+                    ClassId = current.ClassId,
+                    Confidence = maxConf,
+                    X1 = avgX1,
+                    Y1 = avgY1,
+                    X2 = avgX2,
+                    Y2 = avgY2
+                });
+            }
+        }
+
+        return merged;
     }
 
     /// <inheritdoc />

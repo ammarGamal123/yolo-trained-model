@@ -8,7 +8,7 @@ public sealed class DetectionOptions
     public string[] ClassLabels { get; set; } = ["soap", "soap-cover", "bottle"];
     public int ModelWidth { get; set; } = 640;
     public int ModelHeight { get; set; } = 640;
-    public float ConfidenceThreshold { get; set; } = 0.25f;
+    public float ConfidenceThreshold { get; set; } = 0.50f;
     public float IouThreshold { get; set; } = 0.50f;
     public int CameraIndex { get; set; } = 0;
     public string WindowTitle { get; set; } = "Object Detection (ESC to exit)";

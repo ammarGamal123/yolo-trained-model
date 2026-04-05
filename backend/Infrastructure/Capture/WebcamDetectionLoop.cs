@@ -113,10 +113,7 @@ public sealed class WebcamDetectionLoop : IWebcamDetectionLoop
             capture.Read(frame);
             if (frame.Empty()) continue;
 
-            // Fast OpenCV resize for detection input (C++ level, very fast)
-            Cv2.Resize(frame, detectFrame, new OpenCvSharp.Size(detectWidth, detectHeight));
-
-            using Bitmap detectBitmap = BitmapConverter.ToBitmap(detectFrame);
+            using Bitmap detectBitmap = BitmapConverter.ToBitmap(frame);
             IReadOnlyList<DetectionResult> detections = _detector.Detect(detectBitmap);
 
             // Scale detections to display size for overlay

@@ -261,8 +261,10 @@ public sealed class OnnxObjectDetector : IObjectDetector
                 ? data[(channel * candidateCount) + box]
                 : data[(box * channelCount) + channel];
 
-        float scaleX = (float)originalWidth / _options.ModelWidth;
-        float scaleY = (float)originalHeight / _options.ModelHeight;
+        float scale = Math.Min((float)_options.ModelWidth / originalWidth, (float)_options.ModelHeight / originalHeight);
+        float padX = (_options.ModelWidth - originalWidth * scale) / 2f;
+        float padY = (_options.ModelHeight - originalHeight * scale) / 2f;
+
         List<DetectionResult> detections = new(capacity: 256);
 
         for (int box = 0; box < candidateCount; box++)
@@ -291,11 +293,11 @@ public sealed class OnnxObjectDetector : IObjectDetector
                 continue;
             }
 
-            // Calculate pixel coordinates
-            float x1 = (centerX - (width / 2f)) * scaleX;
-            float y1 = (centerY - (height / 2f)) * scaleY;
-            float x2 = (centerX + (width / 2f)) * scaleX;
-            float y2 = (centerY + (height / 2f)) * scaleY;
+            // Calculate pixel coordinates mapping back from letterbox
+            float x1 = (centerX - (width / 2f) - padX) / scale;
+            float y1 = (centerY - (height / 2f) - padY) / scale;
+            float x2 = (centerX + (width / 2f) - padX) / scale;
+            float y2 = (centerY + (height / 2f) - padY) / scale;
 
             // Skip boxes that are degenerate (zero or negative area)
             if (x2 <= x1 || y2 <= y1)

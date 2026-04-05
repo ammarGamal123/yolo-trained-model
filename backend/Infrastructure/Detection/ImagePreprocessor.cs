@@ -40,13 +40,20 @@ public static class ImagePreprocessor
     /// </returns>
     public static float[] ToChwArray(Bitmap source, int targetWidth, int targetHeight)
     {
+        float scale = Math.Min((float)targetWidth / source.Width, (float)targetHeight / source.Height);
+        int newWidth = (int)(source.Width * scale);
+        int newHeight = (int)(source.Height * scale);
+        int padX = (targetWidth - newWidth) / 2;
+        int padY = (targetHeight - newHeight) / 2;
+
         using Bitmap resized = new(targetWidth, targetHeight);
         using (Graphics g = Graphics.FromImage(resized))
         {
+            g.Clear(Color.FromArgb(114, 114, 114)); // Standard YOLO pad color
             g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
             g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
-            g.DrawImage(source, 0, 0, targetWidth, targetHeight);
+            g.DrawImage(source, padX, padY, newWidth, newHeight);
         }
 
         int pixelCount = targetWidth * targetHeight;

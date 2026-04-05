@@ -54,9 +54,9 @@ public sealed class DetectionOverlayRenderer : IImageRenderer
         float scale = Math.Min(image.Width, image.Height) / 500f;
         scale = Math.Max(0.6f, Math.Min(scale, 2.5f));
 
-        float fontSize = 54f * scale;
-        float boxThickness = 18f * scale;
-        float accentThickness = 12f * scale;
+        float fontSize = 24f * scale;
+        float boxThickness = 8f * scale;
+        float accentThickness = 6f * scale;
         int accentLength = Math.Max(12, (int)(30 * scale));
         float cornerRadius = Math.Max(4, 8 * scale);
 

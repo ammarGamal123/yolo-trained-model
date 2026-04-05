@@ -96,6 +96,10 @@ public sealed class OnnxObjectDetector : IObjectDetector
             filtered = MergeCloseDetections(filtered);
         }
 
+        // Clean up messy detection: 
+        // Suppress "soap" (index 0) if it detects the printed graphic inside a "soap-cover" (index 1) box
+        filtered = FilterContainedBoxes(filtered, containerClassId: 1, containedClassId: 0);
+
         sw.Stop();
         _metrics.RecordInference(sw.Elapsed.TotalMilliseconds);
 
@@ -153,6 +157,39 @@ public sealed class OnnxObjectDetector : IObjectDetector
         }
 
         return merged;
+    }
+
+    private List<DetectionResult> FilterContainedBoxes(List<DetectionResult> detections, int containerClassId, int containedClassId)
+    {
+        var valid = new List<DetectionResult>();
+        var containers = detections.Where(d => d.ClassId == containerClassId).ToList();
+
+        foreach (var d in detections)
+        {
+            if (d.ClassId == containedClassId)
+            {
+                bool isContained = false;
+                foreach (var container in containers)
+                {
+                    // Check if 'd' is mostly inside 'container'
+                    float overlapX1 = Math.Max(d.X1, container.X1);
+                    float overlapY1 = Math.Max(d.Y1, container.Y1);
+                    float overlapX2 = Math.Min(d.X2, container.X2);
+                    float overlapY2 = Math.Min(d.Y2, container.Y2);
+
+                    float overlapArea = Math.Max(0f, overlapX2 - overlapX1) * Math.Max(0f, overlapY2 - overlapY1);
+                    
+                    if (overlapArea / d.Area > 0.45f) // If more than 45% of the soap graphic is inside the box
+                    {
+                        isContained = true;
+                        break;
+                    }
+                }
+                if (isContained) continue; // Drop the graphic reading
+            }
+            valid.Add(d);
+        }
+        return valid;
     }
 
     /// <inheritdoc />

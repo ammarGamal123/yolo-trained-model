@@ -31,4 +31,7 @@ public sealed class ImageDetectionReport
 
     /// <summary>Time taken to process this image.</summary>
     public TimeSpan Elapsed { get; init; }
+
+    /// <summary>Frames per second for this detection (1 / elapsed seconds).</summary>
+    public double FPS => Elapsed.TotalSeconds > 0 ? 1.0 / Elapsed.TotalSeconds : 0;
 }

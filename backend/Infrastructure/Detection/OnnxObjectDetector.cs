@@ -1,5 +1,6 @@
 // YOLO detection engine using ONNX Runtime: preprocess -> infer -> parse -> NMS.
 
+using System.Diagnostics;
 using System.Drawing;
 using DeepLearning.Application.Abstractions;
 using DeepLearning.Application.Configuration;
@@ -24,28 +25,51 @@ public sealed class OnnxObjectDetector : IObjectDetector
     private readonly DetectionOptions _options;
     private readonly InferenceSession _session;
     private readonly string _inputName;
+    private readonly DetectionMetrics _metrics = new();
 
     /// <summary>
     /// Minimum bounding box area as fraction of image area.
     /// Boxes smaller than this are filtered out as noise.
     /// </summary>
-    private const float MinBoxAreaFraction = 0.0005f;
+    private const float MinBoxAreaFraction = 0.001f;
 
     /// <summary>
     /// Loads the ONNX model from the path specified in <paramref name="options"/>.
+    /// Configured for maximum inference speed with optimized session options.
     /// </summary>
     /// <param name="options">Must supply <see cref="DetectionOptions.ModelPath"/>.</param>
     /// <exception cref="FileNotFoundException">Thrown when the model file does not exist.</exception>
     public OnnxObjectDetector(DetectionOptions options)
     {
         _options = options;
-        _session = new InferenceSession(_options.ModelPath);
+
+        // Optimize session for maximum speed
+        var sessionOptions = new SessionOptions
+        {
+            // Use all available CPU cores
+            ExecutionMode = ExecutionMode.ORT_PARALLEL,
+            // Enable graph optimization
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+            // Enable memory pattern optimization (faster allocation)
+            EnableMemoryPattern = true,
+            // Enable CPU memory arena
+            EnableCpuMemArena = true,
+        };
+
+        // Set intra-op threads to use all CPU cores
+        int cpuCount = Environment.ProcessorCount;
+        sessionOptions.IntraOpNumThreads = cpuCount;
+        sessionOptions.InterOpNumThreads = Math.Max(1, cpuCount / 2);
+
+        _session = new InferenceSession(_options.ModelPath, sessionOptions);
         _inputName = _session.InputMetadata.Keys.First();
     }
 
     /// <inheritdoc />
     public IReadOnlyList<DetectionResult> Detect(Bitmap image)
     {
+        var sw = Stopwatch.StartNew();
+
         float[] chwData = ImagePreprocessor.ToChwArray(image, _options.ModelWidth, _options.ModelHeight);
         var inputTensor = new DenseTensor<float>(chwData, [1, 3, _options.ModelHeight, _options.ModelWidth]);
 
@@ -57,14 +81,119 @@ public sealed class OnnxObjectDetector : IObjectDetector
         using IDisposableReadOnlyCollection<DisposableNamedOnnxValue> results = _session.Run(inputs);
         IReadOnlyList<DetectionResult> rawDetections = ParseDetections(results, image.Width, image.Height);
 
-        IReadOnlyList<DetectionResult> nmsResult = NmsProcessor.Apply(rawDetections, _options.IouThreshold);
+        IReadOnlyList<DetectionResult> nmsResult = NmsProcessor.Apply(
+            rawDetections, 
+            _options.IouThreshold,
+            _options.UseSoftNms,
+            _options.SoftNmsSigma);
 
-        // Filter out very small boxes (likely noise)
-        float minArea = image.Width * image.Height * MinBoxAreaFraction;
-        return nmsResult
-            .Where(d => d.Area >= minArea)
+        var filtered = nmsResult
+            .Where(d => d.Confidence >= _options.ConfidenceThreshold)
             .ToList();
+
+        if (_options.MergeCloseDetections && filtered.Count > 1)
+        {
+            filtered = MergeCloseDetections(filtered);
+        }
+
+        // Clean up messy detection: 
+        // Suppress "soap" (index 0) if it detects the printed graphic inside a "soap-cover" (index 1) box
+        filtered = FilterContainedBoxes(filtered, containerClassId: 1, containedClassId: 0);
+
+        sw.Stop();
+        _metrics.RecordInference(sw.Elapsed.TotalMilliseconds);
+
+        return filtered;
     }
+
+    private List<DetectionResult> MergeCloseDetections(List<DetectionResult> detections)
+    {
+        var merged = new List<DetectionResult>();
+        var used = new HashSet<int>();
+
+        for (int i = 0; i < detections.Count; i++)
+        {
+            if (used.Contains(i)) continue;
+
+            var current = detections[i];
+            var closeGroup = new List<DetectionResult> { current };
+            used.Add(i);
+
+            for (int j = i + 1; j < detections.Count; j++)
+            {
+                if (used.Contains(j)) continue;
+                if (detections[j].ClassId != current.ClassId) continue;
+
+                float distance = NmsProcessor.CalculateCenterDistance(current, detections[j]);
+                if (distance < _options.MergeDistanceThreshold)
+                {
+                    closeGroup.Add(detections[j]);
+                    used.Add(j);
+                }
+            }
+
+            if (closeGroup.Count == 1)
+            {
+                merged.Add(current);
+            }
+            else
+            {
+                float avgX1 = closeGroup.Average(d => d.X1);
+                float avgY1 = closeGroup.Average(d => d.Y1);
+                float avgX2 = closeGroup.Average(d => d.X2);
+                float avgY2 = closeGroup.Average(d => d.Y2);
+                float maxConf = closeGroup.Max(d => d.Confidence);
+
+                merged.Add(new DetectionResult
+                {
+                    ClassId = current.ClassId,
+                    Confidence = maxConf,
+                    X1 = avgX1,
+                    Y1 = avgY1,
+                    X2 = avgX2,
+                    Y2 = avgY2
+                });
+            }
+        }
+
+        return merged;
+    }
+
+    private List<DetectionResult> FilterContainedBoxes(List<DetectionResult> detections, int containerClassId, int containedClassId)
+    {
+        var valid = new List<DetectionResult>();
+        var containers = detections.Where(d => d.ClassId == containerClassId).ToList();
+
+        foreach (var d in detections)
+        {
+            if (d.ClassId == containedClassId)
+            {
+                bool isContained = false;
+                foreach (var container in containers)
+                {
+                    // Check if 'd' is mostly inside 'container'
+                    float overlapX1 = Math.Max(d.X1, container.X1);
+                    float overlapY1 = Math.Max(d.Y1, container.Y1);
+                    float overlapX2 = Math.Min(d.X2, container.X2);
+                    float overlapY2 = Math.Min(d.Y2, container.Y2);
+
+                    float overlapArea = Math.Max(0f, overlapX2 - overlapX1) * Math.Max(0f, overlapY2 - overlapY1);
+                    
+                    if (overlapArea / d.Area > 0.45f) // If more than 45% of the soap graphic is inside the box
+                    {
+                        isContained = true;
+                        break;
+                    }
+                }
+                if (isContained) continue; // Drop the graphic reading
+            }
+            valid.Add(d);
+        }
+        return valid;
+    }
+
+    /// <inheritdoc />
+    public DetectionMetrics GetMetrics() => _metrics;
 
     /// <summary>
     /// Infers the number of classes directly from the model output tensor shape.
@@ -132,8 +261,10 @@ public sealed class OnnxObjectDetector : IObjectDetector
                 ? data[(channel * candidateCount) + box]
                 : data[(box * channelCount) + channel];
 
-        float scaleX = (float)originalWidth / _options.ModelWidth;
-        float scaleY = (float)originalHeight / _options.ModelHeight;
+        float scale = Math.Min((float)_options.ModelWidth / originalWidth, (float)_options.ModelHeight / originalHeight);
+        float padX = (_options.ModelWidth - originalWidth * scale) / 2f;
+        float padY = (_options.ModelHeight - originalHeight * scale) / 2f;
+
         List<DetectionResult> detections = new(capacity: 256);
 
         for (int box = 0; box < candidateCount; box++)
@@ -162,11 +293,11 @@ public sealed class OnnxObjectDetector : IObjectDetector
                 continue;
             }
 
-            // Calculate pixel coordinates
-            float x1 = (centerX - (width / 2f)) * scaleX;
-            float y1 = (centerY - (height / 2f)) * scaleY;
-            float x2 = (centerX + (width / 2f)) * scaleX;
-            float y2 = (centerY + (height / 2f)) * scaleY;
+            // Calculate pixel coordinates mapping back from letterbox
+            float x1 = (centerX - (width / 2f) - padX) / scale;
+            float y1 = (centerY - (height / 2f) - padY) / scale;
+            float x2 = (centerX + (width / 2f) - padX) / scale;
+            float y2 = (centerY + (height / 2f) - padY) / scale;
 
             // Skip boxes that are degenerate (zero or negative area)
             if (x2 <= x1 || y2 <= y1)

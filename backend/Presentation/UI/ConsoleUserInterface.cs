@@ -174,7 +174,8 @@ public sealed class ConsoleUserInterface : IUserInterface
         PrintBoxedContent([
             $"  Input  : {report.InputPath}",
             $"  Output : {report.OutputPath}",
-            $"  Time   : {timeDisplay}"
+            $"  Time   : {timeDisplay}",
+            $"  FPS    : {report.FPS:F1}"
         ]);
         ShowDetections(report.Detections, classLabels);
     }
@@ -467,7 +468,8 @@ public sealed class ConsoleUserInterface : IUserInterface
             $"  Processed  : {report.ProcessedImages} successful",
             $"  Failed     : {report.FailedImages}",
             $"  Detections : {report.TotalDetections} total",
-            $"  Time       : {FormatElapsedTime(report.Elapsed)}"
+            $"  Time       : {FormatElapsedTime(report.Elapsed)}",
+            $"  Avg FPS    : {report.AverageFPS:F1}"
         };
 
         // Add per-class breakdown
@@ -496,6 +498,29 @@ public sealed class ConsoleUserInterface : IUserInterface
             PrintInfo($"  Annotated images saved to: {Path.Combine(report.FolderPath, "output")}");
             PrintLine();
         }
+    }
+
+    /// <summary>
+    /// Displays a webcam session summary after the user exits the detection loop.
+    /// </summary>
+    public void ShowWebcamSummary(DetectionMetrics metrics, int totalFrames, TimeSpan totalTime)
+    {
+        PrintHeader("WEBCAM SESSION SUMMARY");
+        PrintLine();
+
+        double avgInferenceMs = metrics.TotalInferences > 0
+            ? metrics.TotalElapsedMs / metrics.TotalInferences
+            : 0;
+
+        PrintBoxedContent([
+            $"  Total Frames  : {totalFrames}",
+            $"  Total Time    : {FormatElapsedTime(totalTime)}",
+            $"  Avg FPS       : {metrics.AverageFPS:F1}",
+            $"  Current FPS   : {metrics.CurrentFPS:F1}",
+            $"  Avg Inference : {avgInferenceMs:F0}ms",
+            $"  Total Detections Tracked: {metrics.TotalInferences}"
+        ]);
+        PrintLine();
     }
 
     private string BrowseForImage(IProjectPathProvider pathProvider, string defaultImagePath)

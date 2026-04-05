@@ -30,10 +30,12 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SCRIPT_DIR)
 
 # ─── Source paths ───────────────────────────────────────────────
-BOTTLE_IMAGES = os.path.join(ROOT, "dataset", "images", "train")
-BOTTLE_LABELS = os.path.join(ROOT, "yolo-battles-values")
-SOAP_IMAGES   = os.path.join(ROOT, "dataset", "images", "train")
-SOAP_LABELS   = os.path.join(ROOT, "yolo-soaps-values")
+BOTTLE_IMAGES = os.path.join(ROOT, "images", "bottles-to-train")
+BOTTLE_LABELS = os.path.join(ROOT, "images-values", "yolo-battles-values")
+SOAP_IMAGES   = os.path.join(ROOT, "images", "soaps-to-train")
+SOAP_LABELS   = os.path.join(ROOT, "images-values", "yolo-soaps-values")
+MIXED_IMAGES  = os.path.join(ROOT, "images", "mixed-object-images")
+MIXED_LABELS  = os.path.join(ROOT, "images-values", "yolo-mixed-object-values")
 
 # ─── Output paths ───────────────────────────────────────────────
 RAW_IMAGES = os.path.join(ROOT, "raw-data", "images")
@@ -49,7 +51,7 @@ os.makedirs(RAW_IMAGES, exist_ok=True)
 os.makedirs(RAW_LABELS, exist_ok=True)
 
 # ─── Helper: find image with any extension ──────────────────────
-IMAGE_EXTS = [".jpeg", ".jpg", ".png", ".JPEG", ".JPG", ".PNG"]
+IMAGE_EXTS = [".jpeg", ".jpg", ".png", ".JPEG", ".JPG", ".PNG", ".jfif"]
 
 def find_image(base_name, search_dir):
     """Find an image file by base name, trying all known extensions."""
@@ -103,7 +105,7 @@ def write_labels(path, boxes):
 
 
 # ─── Process bottle images ──────────────────────────────────────
-print("[1/2] Processing bottle images...")
+print("[1/3] Processing bottle images...")
 bottle_count = 0
 for label_path in glob.glob(os.path.join(BOTTLE_LABELS, "*.txt")):
     base = os.path.splitext(os.path.basename(label_path))[0]
@@ -135,7 +137,7 @@ print(f"  Bottles: {bottle_count} images processed")
 
 
 # ─── Process soap images ────────────────────────────────────────
-print("\n[2/2] Processing soap images...")
+print("\n[2/3] Processing soap images...")
 soap_count = 0
 for label_path in glob.glob(os.path.join(SOAP_LABELS, "*.txt")):
     base = os.path.splitext(os.path.basename(label_path))[0]
@@ -169,6 +171,35 @@ for label_path in glob.glob(os.path.join(SOAP_LABELS, "*.txt")):
 print(f"  Soaps: {soap_count} images processed")
 
 
+# ─── Process mixed images ───────────────────────────────────────
+print("\n[3/3] Processing mixed images...")
+mixed_count = 0
+for label_path in glob.glob(os.path.join(MIXED_LABELS, "*.txt")):
+    base = os.path.splitext(os.path.basename(label_path))[0]
+    
+    # Find matching image
+    img_path = find_image(base, MIXED_IMAGES)
+    if img_path is None:
+        print(f"  WARNING: No image for label {os.path.basename(label_path)}")
+        continue
+    
+    # Read mixed labels (already in unified format: 0=bottle, 1=soap-cover, 2=soap)
+    boxes = read_labels(label_path)
+    
+    if not boxes:
+        continue
+    
+    # Copy image
+    dest_name = f"mixed_{base}.jpg"
+    shutil.copy2(img_path, os.path.join(RAW_IMAGES, dest_name))
+    
+    # Write labels (already in correct format)
+    write_labels(os.path.join(RAW_LABELS, dest_name.replace(".jpg", ".txt")), boxes)
+    mixed_count += 1
+
+print(f"  Mixed: {mixed_count} images processed")
+
+
 # ─── Summary ────────────────────────────────────────────────────
 total_images = len(glob.glob(os.path.join(RAW_IMAGES, "*.*")))
 total_labels = len(glob.glob(os.path.join(RAW_LABELS, "*.txt")))
@@ -180,26 +211,27 @@ for label_path in glob.glob(os.path.join(RAW_LABELS, "*.txt")):
         class_counts[box[0]] = class_counts.get(box[0], 0) + 1
 
 print(f"\n{'='*60}")
-print(f"  RAW DATA PREPARED (MERGED BOTTLE + SOAP)")
+print(f"  RAW DATA PREPARED (MERGED BOTTLE + SOAP + MIXED)")
 print(f"{'='*60}")
 print(f"  Bottle images:   {bottle_count}")
 print(f"  Soap images:     {soap_count}")
+print(f"  Mixed images:    {mixed_count}")
 print(f"  Total images:    {total_images}")
 print(f"  Total labels:    {total_labels}")
 print(f"")
 print(f"  Class distribution:")
 print(f"    bottle (0):      {class_counts.get(0, 0)} instances")
-print(f"    soap (1):        {class_counts.get(1, 0)} instances")
-print(f"    soap-cover (2):  {class_counts.get(2, 0)} instances")
+print(f"    soap-cover (1):  {class_counts.get(1, 0)} instances")
+print(f"    soap (2):        {class_counts.get(2, 0)} instances")
 print(f"  Output:        raw-data/")
 
 # Validation: ensure all 3 classes have data
 if class_counts.get(0, 0) == 0:
     print(f"\n  [!] WARNING: No bottle instances found!")
 if class_counts.get(1, 0) == 0:
-    print(f"\n  [!] WARNING: No soap instances found!")
-if class_counts.get(2, 0) == 0:
     print(f"\n  [!] WARNING: No soap-cover instances found!")
+if class_counts.get(2, 0) == 0:
+    print(f"\n  [!] WARNING: No soap instances found!")
 
 if class_counts.get(0, 0) > 0 and class_counts.get(1, 0) > 0 and class_counts.get(2, 0) > 0:
     print(f"\n  [OK] All 3 classes have training data — ready for augmentation.")

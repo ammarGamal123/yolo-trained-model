@@ -46,6 +46,11 @@ os.makedirs(os.path.join(OUT_DIR, "images", "val"), exist_ok=True)
 os.makedirs(os.path.join(OUT_DIR, "labels", "train"), exist_ok=True)
 os.makedirs(os.path.join(OUT_DIR, "labels", "val"), exist_ok=True)
 
+os.makedirs(os.path.join(OUT_DIR, "images", "train"), exist_ok=True)
+os.makedirs(os.path.join(OUT_DIR, "images", "val"), exist_ok=True)
+os.makedirs(os.path.join(OUT_DIR, "labels", "train"), exist_ok=True)
+os.makedirs(os.path.join(OUT_DIR, "labels", "val"), exist_ok=True)
+
 
 def read_yolo_labels(label_path):
     """Read YOLO format labels: class cx cy w h (all normalized)."""

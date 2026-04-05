@@ -18,4 +18,9 @@ public interface IObjectDetector : IDisposable
     /// <param name="image">The source image to analyze. Any size is supported; the detector resizes internally.</param>
     /// <returns>A read-only list of detected objects with positions and confidence scores. Returns an empty list if no objects meet the confidence threshold.</returns>
     IReadOnlyList<DetectionResult> Detect(Bitmap image);
+
+    /// <summary>
+    /// Returns performance metrics collected during detection (FPS, timing, totals).
+    /// </summary>
+    DetectionMetrics GetMetrics();
 }

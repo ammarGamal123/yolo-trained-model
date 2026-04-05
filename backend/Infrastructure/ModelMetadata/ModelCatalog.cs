@@ -24,10 +24,10 @@ public static class ModelCatalog
             + "Trained with 300 epochs, AdamW optimizer, mosaic/mixup augmentation, "
             + "increased classification loss weight (cls=2.0), and label smoothing. "
             + "Fixes class-swap bug from v3 and improves soap/soap-cover discrimination.",
-        Classes = ["bottle", "soap", "soap-cover"],
+        Classes = ["bottle", "soap-cover", "soap"],
         InputSize = "640x640",
         TrainingDate = "April 2026",
-        Metrics = "Training in progress — metrics will be updated after completion"
+        Metrics = "300 epochs, AdamW, 12x augmentation, mAP50: pending"
     };
 
     /// <summary>

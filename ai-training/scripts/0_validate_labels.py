@@ -16,10 +16,10 @@ import numpy as np
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(SCRIPT_DIR)
 
-SOAP_LABELS = os.path.join(ROOT, "yolo-soaps-values")
-SOAP_IMAGES = os.path.join(ROOT, "dataset", "images", "train")
-BOTTLE_LABELS = os.path.join(ROOT, "yolo-battles-values")
-BOTTLE_IMAGES = os.path.join(ROOT, "dataset", "images", "train")
+SOAP_LABELS = os.path.join(ROOT, "images-values", "yolo-soaps-values")
+SOAP_IMAGES = os.path.join(ROOT, "images", "soaps-to-train")
+BOTTLE_LABELS = os.path.join(ROOT, "images-values", "yolo-battles-values")
+BOTTLE_IMAGES = os.path.join(ROOT, "images", "bottles-to-train")
 
 IMAGE_EXTS = [".jpeg", ".jpg", ".png", ".JPEG", ".JPG", ".PNG"]
 

@@ -1,7 +1,0 @@
-path: D:\Ammar\YOLO\yolo-trained-model\ai-training\bottle-dataset
-train: images/train
-val: images/val
-
-nc: 1
-names:
-  0: bottle

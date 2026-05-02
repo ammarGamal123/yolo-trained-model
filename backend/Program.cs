@@ -1,6 +1,3 @@
-// modelDetector — Composition root: wires all dependencies and starts the application.
-// See ARCHITECTURE-AND-CODE-REFERENCE.md for full documentation.
-
 using DeepLearning.Application.Abstractions;
 using DeepLearning.Application.Configuration;
 using DeepLearning.Application.UseCases;
@@ -10,6 +7,8 @@ using DeepLearning.Infrastructure.ModelMetadata;
 using DeepLearning.Infrastructure.Pathing;
 using DeepLearning.Infrastructure.Rendering;
 using DeepLearning.Presentation.UI;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DeepLearning;
 
@@ -18,10 +17,17 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
+        IConfigurationRoot configuration = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+            .Build();
+
         var options = new DetectionOptions();
-        IUserInterface userInterface = new ConsoleUserInterface();
+        configuration.GetSection("Detection").Bind(options);
+
+        var userInterface = new ConsoleUserInterface();
         var customModelRegistry = new CustomModelRegistry();
-        IProjectPathProvider pathProvider = new ProjectPathProvider();
+        var pathProvider = new ProjectPathProvider();
 
         if (PromptLoadCustomModel(userInterface, options, customModelRegistry))
         {
@@ -43,36 +49,24 @@ internal static class Program
 
         options.ModelPath = resolvedModelPath;
 
-        using IObjectDetector detector = new OnnxObjectDetector(options);
-        IImageRenderer imageRenderer = new DetectionOverlayRenderer(options);
-        IWebcamDetectionLoop webcamDetectionLoop = new WebcamDetectionLoop(options, detector, imageRenderer, userInterface);
+        var services = new ServiceCollection();
+        services.AddSingleton(options);
+        services.AddSingleton<IUserInterface>(userInterface);
+        services.AddSingleton<IProjectPathProvider>(pathProvider);
+        services.AddSingleton<CustomModelRegistry>(customModelRegistry);
+        services.AddSingleton<IImageRenderer, DetectionOverlayRenderer>();
+        services.AddSingleton<IObjectDetector, OnnxObjectDetector>();
+        services.AddSingleton<IWebcamDetectionLoop, WebcamDetectionLoop>();
+        services.AddSingleton<DetectImageFromFileUseCase>();
+        services.AddSingleton<DetectImagesInFolderUseCase>();
+        services.AddSingleton<RunDetectionApplication>();
 
-        var detectImageFromFileUseCase = new DetectImageFromFileUseCase(
-            options,
-            detector,
-            imageRenderer,
-            pathProvider);
-
-        var detectImagesInFolderUseCase = new DetectImagesInFolderUseCase(
-            options,
-            detector,
-            imageRenderer,
-            pathProvider);
-
-        var runDetectionApplication = new RunDetectionApplication(
-            options,
-            userInterface,
-            webcamDetectionLoop,
-            detectImageFromFileUseCase,
-            detectImagesInFolderUseCase,
-            pathProvider);
-
-        runDetectionApplication.Execute();
+        using ServiceProvider serviceProvider = services.BuildServiceProvider();
+        serviceProvider.GetRequiredService<RunDetectionApplication>().Execute();
     }
 
     private static bool PromptLoadCustomModel(IUserInterface userInterface, DetectionOptions options, CustomModelRegistry registry)
     {
-        // Check if the default model is known and show its name
         var summary = ModelCatalog.TryGetSummary(options.ModelPath);
         string modelDisplayName = summary != null
             ? $"{Path.GetFileName(options.ModelPath)} ({summary.ModelName})"
@@ -117,7 +111,6 @@ internal static class Program
         userInterface.ShowInfo($"  Model selected: {Path.GetFileName(onnxPath)}");
         options.ModelPath = onnxPath;
 
-        // Check if this model is already in the catalog
         var catalogSummary = ModelCatalog.TryGetSummary(onnxPath);
         if (catalogSummary != null)
         {
@@ -130,7 +123,6 @@ internal static class Program
             return;
         }
 
-        // Check if this model was previously registered by the user
         var customSummary = registry.GetCustomModel(onnxPath);
         if (customSummary != null)
         {
@@ -143,7 +135,6 @@ internal static class Program
             return;
         }
 
-        // Unknown model — infer class count and prompt for labels
         int inferredClassCount;
         try
         {
@@ -162,7 +153,6 @@ internal static class Program
         string[] classLabels = userInterface.PromptForClassLabels(inferredClassCount);
         options.ClassLabels = classLabels;
 
-        // Ask if user wants to register this model for future sessions
         userInterface.ShowInfo("");
         userInterface.ShowInfo("  Would you like to save this model's info for future sessions?");
         userInterface.ShowInfo("  [1] Yes — save model metadata");
